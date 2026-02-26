@@ -1,0 +1,61 @@
+# CoinGlass Heatmap: wysyłka co godzinę, tylko w godzinach 7:00–23:00 (Europe/Warsaw)
+name: Heatmap co godzinę (7–23)
+
+on:
+  schedule:
+    # Co godzinę (UTC)
+    - cron: "0 * * * *"
+  workflow_dispatch: # Ręczne uruchomienie z zakładki Actions
+
+jobs:
+  send-heatmap:
+    runs-on: ubuntu-latest
+    # Tylko między 7:00 a 23:00 w strefie Europe/Warsaw
+    steps:
+      - name: Sprawdź godzinę (7–23 Warszawa)
+        id: time_check
+        run: |
+          HOUR=$(TZ='Europe/Warsaw' date +%H)
+          if [ "$HOUR" -ge 7 ] && [ "$HOUR" -le 23 ]; then
+            echo "run=true" >> $GITHUB_OUTPUT
+            echo "Godzina $HOUR (Warszawa) – uruchamiam."
+          else
+            echo "run=false" >> $GITHUB_OUTPUT
+            echo "Godzina $HOUR (Warszawa) – pomijam (poza 7–23)."
+          fi
+
+      - name: Checkout
+        if: steps.time_check.outputs.run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Python
+        if: steps.time_check.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Zależności
+        if: steps.time_check.outputs.run == 'true'
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium
+          playwright install-deps chromium
+
+      - name: Konfiguracja .env
+        if: steps.time_check.outputs.run == 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          echo "HEATMAP_URL=https://www.coinglass.com/pro/futures/LiquidationHeatMap?coin=BTC&type=symbol" > .env
+          echo "SEND_EMAIL=false" >> .env
+          echo "SEND_TELEGRAM=true" >> .env
+          echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" >> .env
+          echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID" >> .env
+          echo "HEATMAP_INTERVAL=12 hour" >> .env
+          echo "WAIT_AFTER_LOAD_MS=2500" >> .env
+          echo "HEADLESS=true" >> .env
+
+      - name: Screenshot i wysyłka na Telegram
+        if: steps.time_check.outputs.run == 'true'
+        run: python run_agent.py
