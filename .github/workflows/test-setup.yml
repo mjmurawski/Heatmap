@@ -1,0 +1,43 @@
+# Test: czy sekrety i repo są poprawnie ustawione (uruchom ręcznie)
+name: Test konfiguracji
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Zależności
+        run: pip install python-dotenv
+
+      - name: Sprawdź sekrety (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Błąd: Dodaj sekrety w Settings → Secrets and variables → Actions"
+            echo "Wymagane: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID"
+            exit 1
+          fi
+          echo "Sekrety ustawione poprawnie."
+
+      - name: Lista plików projektu
+        run: |
+          echo "Struktura repo:"
+          ls -la
+          echo "Workflow:"
+          ls -la .github/workflows/
+          test -f run_agent.py && echo "run_agent.py OK" || exit 1
+          test -f capture.py && echo "capture.py OK" || exit 1
+          test -f requirements.txt && echo "requirements.txt OK" || exit 1
+          echo "Wszystkie pliki na miejscu."
