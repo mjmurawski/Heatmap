@@ -12,16 +12,22 @@ jobs:
     runs-on: ubuntu-latest
     # Tylko między 7:00 a 23:00 w strefie Europe/Warsaw
     steps:
-      - name: Sprawdź godzinę (7–23 Warszawa)
+      - name: Sprawdź godzinę (7–23 Warszawa) lub uruchomienie ręczne
         id: time_check
         run: |
-          HOUR=$(TZ='Europe/Warsaw' date +%H)
-          if [ "$HOUR" -ge 7 ] && [ "$HOUR" -le 23 ]; then
+          # Przy ręcznym "Run workflow" zawsze wysyłaj (test)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "run=true" >> $GITHUB_OUTPUT
-            echo "Godzina $HOUR (Warszawa) – uruchamiam."
+            echo "Uruchomienie ręczne – wysyłam."
           else
-            echo "run=false" >> $GITHUB_OUTPUT
-            echo "Godzina $HOUR (Warszawa) – pomijam (poza 7–23)."
+            HOUR=$(TZ='Europe/Warsaw' date +%H)
+            if [ "$HOUR" -ge 7 ] && [ "$HOUR" -le 23 ]; then
+              echo "run=true" >> $GITHUB_OUTPUT
+              echo "Godzina $HOUR (Warszawa) – uruchamiam."
+            else
+              echo "run=false" >> $GITHUB_OUTPUT
+              echo "Godzina $HOUR (Warszawa) – pomijam (poza 7–23)."
+            fi
           fi
 
       - name: Checkout
