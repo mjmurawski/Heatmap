@@ -57,9 +57,18 @@ def run_once() -> int:
     basic_report = generate_liquidation_report()
 
     # 4) Opcjonalnie: zaawansowana analiza z użyciem obrazów + raportu liczbowego.
+    # Jeśli Bybit nie zadziała (basic_report = None), nadal spróbuj analizy
+    # opartej wyłącznie na obrazach, z jasną adnotacją w promptcie.
     report_text = basic_report
-    if RUN_ADVANCED_ANALYSIS and basic_report:
-        advanced = run_advanced_analysis(image_paths=image_paths, basic_report=basic_report)
+    if RUN_ADVANCED_ANALYSIS:
+        context_for_ai = (
+            basic_report
+            if basic_report
+            else "Uwaga: nie udało się pobrać żadnych danych liczbowych z Bybit "
+            "(np. błąd HTTP 403 lub ograniczenie IP). Oprzyj analizę wyłącznie "
+            "na dostarczonych zrzutach ekranu (heatmapy + whale tracker)."
+        )
+        advanced = run_advanced_analysis(image_paths=image_paths, basic_report=context_for_ai)
         if advanced:
             report_text = advanced
 

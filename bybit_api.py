@@ -8,6 +8,9 @@ from config import BYBIT_SYMBOL, BYBIT_CATEGORY
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.bybit.com"
+DEFAULT_HEADERS = {
+    "User-Agent": "coinglass-liquidation-agent/1.0 (+https://github.com/mjmurawski/Heatmap)",
+}
 
 
 class BybitAPIError(Exception):
@@ -33,7 +36,7 @@ def fetch_bybit_ticker(
     logger.info("Pobieram dane z Bybit ticker: %s params=%s", url, params)
 
     try:
-        r = requests.get(url, params=params, timeout=15)
+        r = requests.get(url, params=params, headers=DEFAULT_HEADERS, timeout=15)
         r.raise_for_status()
     except requests.RequestException as e:
         raise BybitAPIError(f"Błąd HTTP przy pobieraniu Bybit ticker: {e}") from e
