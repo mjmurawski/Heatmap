@@ -21,9 +21,10 @@ from config import (
 logger = logging.getLogger(__name__)
 
 
-def send_screenshot_email(image_path: Path) -> bool:
+def send_screenshot_email(image_paths: list[Path], report_text: str | None = None) -> bool:
     """
-    Wysyła e-mail z załączonym screenshotem mapy likwidacji.
+    Wysyła e-mail z załączonymi screenshotami (np. klasyczna mapa likwidacji + Hyperliquid)
+    oraz – jeśli dostępny – raportem z API Bybit.
     Wymaga: SEND_EMAIL=true oraz SMTP_* i EMAIL_TO w .env.
     """
     if not SEND_EMAIL:
@@ -41,15 +42,25 @@ def send_screenshot_email(image_path: Path) -> bool:
     msg["Subject"] = subject
     msg["From"] = EMAIL_FROM
     msg["To"] = ", ".join(recipients)
-    msg.attach(MIMEText("Załączam aktualny screenshot mapy likwidacji BTC (CoinGlass).", "plain"))
 
-    try:
-        with open(image_path, "rb") as f:
-            img = MIMEImage(f.read(), name=image_path.name)
-        msg.attach(img)
-    except OSError as e:
-        logger.error("Nie można odczytać pliku screenshot: %s", e)
-        return False
+    if report_text:
+        # Uprość treść: wyślij wyłącznie samą analizę, bez wstępnych zdań,
+        # żeby zmaksymalizować miejsce na meritum.
+        body = report_text
+    else:
+        body = "Załączam aktualne screenshoty z CoinGlass (heatmapa + Hyperliquid)."
+
+    msg.attach(MIMEText(body, "plain"))
+
+    # Dołącz wszystkie dostępne pliki jako osobne załączniki.
+    for image_path in image_paths:
+        try:
+            with open(image_path, "rb") as f:
+                img = MIMEImage(f.read(), name=Path(image_path).name)
+            msg.attach(img)
+        except OSError as e:
+            logger.error("Nie można odczytać pliku screenshot: %s", e)
+            return False
 
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:

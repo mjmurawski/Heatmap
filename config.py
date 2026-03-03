@@ -4,13 +4,30 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# Jawnie wczytaj plik .env z katalogu projektu i pozwól mu nadpisać
+# zmienne środowiskowe z systemu (override=True), aby wartości z .env
+# zawsze były używane przy uruchamianiu agenta.
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env", override=True)
 
-# URL mapy likwidacji (można zmienić coin w query)
-HEATMAP_URL = os.getenv(
-    "HEATMAP_URL",
+# --- CoinGlass: strony WWW (screenshot) ---
+# Domyślnie: dashboard Hyperliquid na CoinGlass (ogólny widok).
+HEATMAP_URL = os.getenv("HEATMAP_URL", "https://www.coinglass.com/hyperliquid")
+# Klasyczna mapa likwidacji (BTC) – używana do pobrania „czystej” heatmapy.
+LIQUIDATION_HEATMAP_URL = os.getenv(
+    "LIQUIDATION_HEATMAP_URL",
     "https://www.coinglass.com/pro/futures/LiquidationHeatMap?coin=BTC&type=symbol",
 )
+
+# --- Bybit: dane rynkowe do raportu (publiczne API, bez klucza) ---
+# Symbol kontraktu perpetual, np. BTCUSDT, ETHUSDT.
+BYBIT_SYMBOL = os.getenv("BYBIT_SYMBOL", "BTCUSDT")
+# Kategoria API (spot/linear/inverse/option). Dla perpetual USDT używamy "linear".
+BYBIT_CATEGORY = os.getenv("BYBIT_CATEGORY", "linear")
+
+# --- Zaawansowana analiza (Gemini) ---
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+RUN_ADVANCED_ANALYSIS = os.getenv("RUN_ADVANCED_ANALYSIS", "false").lower() == "true"
 
 # Katalog na screenshoty (tymczasowe)
 SCREENSHOT_DIR = Path(os.getenv("SCREENSHOT_DIR", "screenshots"))

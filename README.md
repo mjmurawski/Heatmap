@@ -1,6 +1,22 @@
-# Agent: CoinGlass Liquidation Heatmap → screenshot → e-mail / Telegram
+# Agent: CoinGlass Liquidation Heatmap → screenshot → raport (CoinGlass UI lub Bybit) → e-mail / Telegram
 
 Agent wchodzi na stronę [CoinGlass BTC Liquidation Heatmap](https://www.coinglass.com/pro/futures/LiquidationHeatMap?coin=BTC&type=symbol), robi screenshot mapy likwidacji i wysyła go e-mailem i/lub na Telegrama.
+
+Następnie próbuje zbudować **raport tekstowy** dwustopniowo:
+
+1. **(Opcjonalnie) CoinGlass – scraping po zalogowaniu**  
+   Jeśli w `.env` włączysz `COINGLASS_SCRAPE_ENABLED=true` i podasz `COINGLASS_EMAIL` + `COINGLASS_PASSWORD`, agent:
+   - zaloguje się do Twojego konta CoinGlass przez Playwright,
+   - odwiedzi kilka kluczowych zakładek (heatmapa, long/short ratio, funding),
+   - spróbuje wyciągnąć fragmenty tabel i zbuduje z nich raport.
+
+2. **Fallback: publiczne API Bybit** (`/v5/market/tickers`)  
+   Jeśli scraping CoinGlass się nie uda lub jest wyłączony, agent pobiera dane rynkowe dla kontraktu (np. `BTCUSDT`) i tworzy raport z:
+   - aktualną ceną,
+   - zmianą 24h i zakresem 24h,
+   - wolumenem 24h, przybliżonym obrotem w USD,
+   - open interest,
+   - funding rate.
 
 ## Wymagania
 
@@ -26,6 +42,15 @@ playwright install chromium
 2. Edytuj `.env`:
    - **E-mail:** ustaw `SEND_EMAIL=true`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_TO`. Dla Gmaila użyj [hasła aplikacji](https://support.google.com/accounts/answer/185833).
    - **Telegram:** ustaw `SEND_TELEGRAM=true`, `TELEGRAM_BOT_TOKEN` (od [@BotFather](https://t.me/BotFather)), `TELEGRAM_CHAT_ID` (np. z [@userinfobot](https://t.me/userinfobot)).
+   - **CoinGlass – raport po zalogowaniu (opcjonalne):**
+     - włącz: `COINGLASS_SCRAPE_ENABLED=true`,
+     - ustaw: `COINGLASS_EMAIL`, `COINGLASS_PASSWORD`,
+     - agent zaloguje się i spróbuje zebrać dane z wybranych zakładek.
+   - **Bybit (raport fallback):**
+     - raport korzysta z **publicznego API Bybit** – nie wymaga klucza API,
+     - możesz opcjonalnie ustawić w `.env`:
+       - `BYBIT_SYMBOL` (np. `BTCUSDT`),
+       - `BYBIT_CATEGORY` (np. `linear`).
 
 ## Uruchomienie
 
@@ -96,6 +121,10 @@ Domyślnie workflow ustawia w jobie: `SEND_TELEGRAM=true`, interwał 12 h, BTC. 
 | `SMTP_*`, `EMAIL_*` | Ustawienia SMTP i adresy |
 | `SEND_TELEGRAM` | `true` = włącz wysyłkę na Telegram |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Dane bota Telegram |
+| `COINGLASS_SCRAPE_ENABLED` | `true` = włącz logowanie i scraping UI CoinGlass |
+| `COINGLASS_EMAIL`, `COINGLASS_PASSWORD` | Dane logowania do CoinGlass (używaj zgodnie z regulaminem) |
+| `BYBIT_SYMBOL` | Symbol kontraktu do raportu (domyślnie `BTCUSDT`) |
+| `BYBIT_CATEGORY` | Kategoria Bybit API (`linear` dla perpetual USDT) |
 
 ## Licencja / regulamin
 

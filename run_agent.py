@@ -18,6 +18,9 @@ from pathlib import Path
 from capture import capture_heatmap
 from send_email import send_screenshot_email
 from send_telegram import send_screenshot_telegram
+from report import generate_liquidation_report, build_telegram_caption
+from analysis_agent import run_advanced_analysis
+from config import HEATMAP_URL, LIQUIDATION_HEATMAP_URL, RUN_ADVANCED_ANALYSIS
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,19 +34,47 @@ INTERVAL_SECONDS = 3600  # 1 godzina
 
 
 def run_once() -> int:
-    """Jedno wykonanie: screenshot + wysyłka. Zwraca 0 = OK, 1 = błąd."""
-    filepath = capture_heatmap()
-    if not filepath or not Path(filepath).exists():
-        logger.error("Nie udało się zrobić screenshotu.")
-        return 1
+    """Jedno wykonanie: screenshoty + raport z Bybit + wysyłka.
+    Zwraca 0 = OK, 1 = błąd.
+    """
+    image_paths: list[Path] = []
 
-    ok_email = send_screenshot_email(filepath)
-    ok_telegram = send_screenshot_telegram(filepath)
+    # 1) „Czysta” mapa likwidacji BTC z klasycznej strony (przycisk aparatu).
+    btc_heatmap_path = capture_heatmap(url=LIQUIDATION_HEATMAP_URL)
+    if not btc_heatmap_path or not Path(btc_heatmap_path).exists():
+        logger.error("Nie udało się pobrać BTC heatmapy z klasycznej strony.")
+        return 1
+    image_paths.append(Path(btc_heatmap_path))
+
+    # 2) Screenshot z dashboardu Hyperliquid (lub innego URL z HEATMAP_URL).
+    hyperliquid_path = capture_heatmap(url=HEATMAP_URL)
+    if not hyperliquid_path or not Path(hyperliquid_path).exists():
+        logger.warning("Nie udało się zrobić screenshotu z HEATMAP_URL – pominę ten załącznik.")
+    else:
+        image_paths.append(Path(hyperliquid_path))
+
+    # 3) Raport z Bybit – jeśli wystąpi błąd, funkcja zwróci None.
+    basic_report = generate_liquidation_report()
+
+    # 4) Opcjonalnie: zaawansowana analiza z użyciem obrazów + raportu liczbowego.
+    report_text = basic_report
+    if RUN_ADVANCED_ANALYSIS and basic_report:
+        advanced = run_advanced_analysis(image_paths=image_paths, basic_report=basic_report)
+        if advanced:
+            report_text = advanced
+
+    ok_email = send_screenshot_email(image_paths, report_text=report_text)
+
+    # Na Telegram wysyłamy oba screenshoty (heatmapa + Hyperliquid),
+    # z podpisem tylko przy pierwszym.
+    base_caption = f"CoinGlass BTC Liquidation Heatmap – {time.strftime('%Y-%m-%d %H:%M')}"
+    caption = build_telegram_caption(base_caption, report_text)
+    ok_telegram = send_screenshot_telegram(image_paths, caption=caption)
 
     if not ok_email or not ok_telegram:
         if ok_email is False or ok_telegram is False:
             logger.warning("Jeden z kanałów wysyłki zwrócił błąd (sprawdź logi).")
-    logger.info("Zakończono. Screenshot: %s", filepath)
+    logger.info("Zakończono. Screenshoty: %s", ", ".join(str(p) for p in image_paths))
     return 0
 
 
