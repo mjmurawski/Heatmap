@@ -52,13 +52,28 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          echo "HEATMAP_URL=https://www.coinglass.com/pro/futures/LiquidationHeatMap?coin=BTC&type=symbol" > .env
+          # Strona Hyperliquid (dashboard)
+          echo "HEATMAP_URL=https://www.coinglass.com/hyperliquid" > .env
+          # Klasyczna BTC Liquidation Heatmap (przycisk aparatu)
+          echo "LIQUIDATION_HEATMAP_URL=https://www.coinglass.com/pro/futures/LiquidationHeatMap?coin=BTC&type=symbol" >> .env
+
+          # Bybit – raport liczbowy
+          echo "BYBIT_SYMBOL=BTCUSDT" >> .env
+          echo "BYBIT_CATEGORY=linear" >> .env
+
+          # Kanały wysyłki
           echo "SEND_EMAIL=false" >> .env
           echo "SEND_TELEGRAM=true" >> .env
           echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" >> .env
           echo "TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID" >> .env
-          echo "HEATMAP_INTERVAL=12 hour" >> .env
+
+          # Gemini – zaawansowana analiza
+          echo "RUN_ADVANCED_ANALYSIS=true" >> .env
+          echo "GEMINI_API_KEY=$GEMINI_API_KEY" >> .env
+
+          # Ustawienia Playwrighta
           echo "WAIT_AFTER_LOAD_MS=2500" >> .env
           echo "HEADLESS=true" >> .env
 
