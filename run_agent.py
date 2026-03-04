@@ -17,7 +17,7 @@ from pathlib import Path
 
 from capture import capture_heatmap
 from send_email import send_screenshot_email
-from send_telegram import send_screenshot_telegram
+from send_telegram import send_screenshot_telegram, send_text_telegram
 from report import generate_liquidation_report, build_telegram_caption
 from analysis_agent import run_advanced_analysis
 from config import HEATMAP_URL, LIQUIDATION_HEATMAP_URL, RUN_ADVANCED_ANALYSIS
@@ -74,11 +74,14 @@ def run_once() -> int:
 
     ok_email = send_screenshot_email(image_paths, report_text=report_text)
 
-    # Na Telegram wysyłamy oba screenshoty (heatmapa + Hyperliquid),
-    # z podpisem tylko przy pierwszym.
+    # Na Telegram wysyłamy:
+    # 1) oba screenshoty (heatmapa + Hyperliquid) z krótkim podpisem,
+    # 2) pełną analizę jako osobną wiadomość tekstową (bez limitu caption).
     base_caption = f"CoinGlass BTC Liquidation Heatmap – {time.strftime('%Y-%m-%d %H:%M')}"
-    caption = build_telegram_caption(base_caption, report_text)
-    ok_telegram = send_screenshot_telegram(image_paths, caption=caption)
+    ok_telegram = send_screenshot_telegram(image_paths, caption=base_caption)
+
+    if report_text:
+        send_text_telegram(report_text)
 
     if not ok_email or not ok_telegram:
         if ok_email is False or ok_telegram is False:

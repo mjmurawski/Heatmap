@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 TELEGRAM_SEND_PHOTO_API = "https://api.telegram.org/bot{token}/sendPhoto"
 TELEGRAM_MEDIA_GROUP_API = "https://api.telegram.org/bot{token}/sendMediaGroup"
+TELEGRAM_SEND_MESSAGE_API = "https://api.telegram.org/bot{token}/sendMessage"
 
 
 def send_screenshot_telegram(
@@ -107,3 +108,32 @@ def send_screenshot_telegram(
                 fh.close()
             except Exception:
                 pass
+
+
+def send_text_telegram(message: str) -> bool:
+    """
+    Wysyła osobną wiadomość tekstową (np. pełną analizę) na Telegram.
+    """
+    if not SEND_TELEGRAM:
+        logger.info("SEND_TELEGRAM=false, pomijam wysyłkę tekstu na Telegram.")
+        return True
+
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        logger.warning("Brak TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID — pomijam Telegram (tekst).")
+        return False
+
+    url = TELEGRAM_SEND_MESSAGE_API.format(token=TELEGRAM_BOT_TOKEN)
+    data = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        # Bez parse_mode, żeby nie psuć Markdownu z ** w analizie.
+    }
+
+    try:
+        r = requests.post(url, data=data, timeout=30)
+        r.raise_for_status()
+        logger.info("Wiadomość tekstowa wysłana na Telegram.")
+        return True
+    except requests.RequestException as e:
+        logger.exception("Błąd wysyłki tekstu na Telegram: %s", e)
+        return False
