@@ -1,8 +1,9 @@
 """Wysyłka screenshotu na Telegram (Bot API)."""
 import logging
+import time
 from pathlib import Path
 from datetime import datetime
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, List
 import json
 
 import requests
@@ -113,6 +114,8 @@ def send_screenshot_telegram(
 def send_text_telegram(message: str) -> bool:
     """
     Wysyła osobną wiadomość tekstową (np. pełną analizę) na Telegram.
+    Jeśli tekst przekracza limity Telegrama (~4096 znaków), dzieli go na
+    kilka krótszych wiadomości po sensownych granicach (akapitach).
     """
     if not SEND_TELEGRAM:
         logger.info("SEND_TELEGRAM=false, pomijam wysyłkę tekstu na Telegram.")
@@ -122,18 +125,51 @@ def send_text_telegram(message: str) -> bool:
         logger.warning("Brak TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID — pomijam Telegram (tekst).")
         return False
 
-    url = TELEGRAM_SEND_MESSAGE_API.format(token=TELEGRAM_BOT_TOKEN)
-    data = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        # Bez parse_mode, żeby nie psuć Markdownu z ** w analizie.
-    }
+    def _send_chunk(chunk: str) -> bool:
+        url = TELEGRAM_SEND_MESSAGE_API.format(token=TELEGRAM_BOT_TOKEN)
+        data = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": chunk,
+            # Bez parse_mode, żeby nie psuć Markdownu z ** w analizie.
+        }
+        try:
+            r = requests.post(url, data=data, timeout=30)
+            r.raise_for_status()
+            logger.info("Wiadomość tekstowa wysłana na Telegram (chunk, len=%s).", len(chunk))
+            return True
+        except requests.RequestException as e:
+            logger.exception("Błąd wysyłki tekstu na Telegram: %s", e)
+            return False
 
-    try:
-        r = requests.post(url, data=data, timeout=30)
-        r.raise_for_status()
-        logger.info("Wiadomość tekstowa wysłana na Telegram.")
-        return True
-    except requests.RequestException as e:
-        logger.exception("Błąd wysyłki tekstu na Telegram: %s", e)
-        return False
+    # Limit Telegrama to ~4096 znaków; przytnij trochę dla bezpieczeństwa.
+    MAX_LEN = 3800
+    text = message.strip()
+    if len(text) <= MAX_LEN:
+        return _send_chunk(text)
+
+    # Podziel po akapitach, zachowując strukturę scenariuszy.
+    paragraphs: List[str] = text.split("\n\n")
+    current: List[str] = []
+    current_len = 0
+    all_ok = True
+
+    for para in paragraphs:
+        # +2 na "\n\n" między akapitami.
+        add_len = len(para) + (2 if current else 0)
+        if current and current_len + add_len > MAX_LEN:
+            chunk = "\n\n".join(current)
+            if not _send_chunk(chunk):
+                all_ok = False
+            time.sleep(0.6)  # Ograniczenie rate limit Telegrama między chunkami
+            current = [para]
+            current_len = len(para)
+        else:
+            current.append(para)
+            current_len += add_len
+
+    if current:
+        chunk = "\n\n".join(current)
+        if not _send_chunk(chunk):
+            all_ok = False
+
+    return all_ok

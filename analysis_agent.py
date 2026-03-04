@@ -116,7 +116,7 @@ def run_advanced_analysis(
 
     config = types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
-        max_output_tokens=2048,
+        max_output_tokens=8192,  # Pełna analiza (Bazowy + Alternatywny + Synteza) – 2048 ucinało w połowie
     )
 
     try:
